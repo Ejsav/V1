@@ -1,0 +1,60 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: contextgate
+      POSTGRES_PASSWORD: contextgate
+      POSTGRES_DB: contextgate
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U contextgate"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    environment: &app_env
+      APP_NAME: ContextGate
+      ENV: development
+      DATABASE_URL: postgresql+asyncpg://contextgate:contextgate@postgres:5432/contextgate
+      REDIS_URL: redis://redis:6379/0
+      CACHE_SIMILARITY_THRESHOLD: "0.88"
+      EMBEDDING_DIMENSIONS: "384"
+      DEFAULT_PROVIDER: mock
+      GEMINI_API_KEY: ""
+      WORKER_TIMEOUT_SECONDS: "15"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    command: python -m app.workers.llm_worker
+    environment: *app_env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
