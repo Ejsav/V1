@@ -275,6 +275,7 @@ The cached path skips the queue and the provider entirely — it's a single vect
 - Cache invalidation rules
 - Admin metrics endpoint
 - Request deduplication
+- Worker crash recovery (reclaim pending queue entries after a mid-request restart)
 
 **V3**
 - Dashboard
