@@ -4,6 +4,8 @@
 
 ContextGate is an LLM context router with semantic caching, async request handling, and provider-aware context reuse. It sits between your application and AI model providers, reducing repeated model calls and improving response latency for repeated or similar prompts.
 
+> **📁 Run all commands from inside this `contextgate/` directory.** The project lives here (the repository root only holds a pointer README), so `cd contextgate` first before running `docker compose`, `pytest`, or the benchmark.
+
 > **A note on caching:** Hosted model KV-caches (OpenAI, Gemini, Claude) are internal to those providers and are not externally accessible. ContextGate does **not** try to control or offload those internal caches. Instead, it reduces repeated work *outside* the model by caching semantically similar requests and routing repeated context more efficiently.
 
 ---
@@ -216,10 +218,15 @@ See `.env.example`:
 
 ## Running the tests
 
+Run these from inside the `contextgate/` directory:
+
 ```bash
+cd contextgate
 pip install -r requirements.txt
 pytest
 ```
+
+The same tests run automatically on every pull request into `main` via GitHub Actions (`.github/workflows/ci.yml`).
 
 Tests cover the health endpoint, embedding similarity behavior (similar prompts score high, unrelated prompts score lower), and the mock provider.
 
@@ -227,9 +234,10 @@ Tests cover the health endpoint, embedding similarity behavior (similar prompts 
 
 ## Benchmark
 
-With the stack running:
+With the stack running, from inside the `contextgate/` directory:
 
 ```bash
+cd contextgate
 python benchmarks/benchmark_cache.py
 ```
 
