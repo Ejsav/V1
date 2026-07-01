@@ -267,6 +267,7 @@ The cached path skips the queue and the provider entirely — it's a single vect
 - Mock provider
 - Gemini adapter placeholder
 - Benchmark script
+- Basic pending-entry recovery (reclaims orphaned queue entries on worker restart)
 
 **V2**
 - OpenAI and Anthropic adapters
@@ -275,7 +276,7 @@ The cached path skips the queue and the provider entirely — it's a single vect
 - Cache invalidation rules
 - Admin metrics endpoint
 - Request deduplication
-- Worker crash recovery (reclaim pending queue entries after a mid-request restart)
+- Advanced retry policies (backoff, dead-letter queue, multi-worker fairness)
 
 **V3**
 - Dashboard

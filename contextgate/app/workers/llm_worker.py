@@ -71,10 +71,55 @@ async def _process(payload: dict) -> None:
         await queue_service.publish_result(request_id, {"error": str(exc)})
 
 
+async def _handle_entries(client: redis.Redis, entries: list) -> None:
+    """Process a batch of stream entries and ack each one."""
+    for message_id, fields in entries:
+        payload = json.loads(fields["data"])
+        await _process(payload)
+        await client.xack(
+            settings.request_stream, settings.consumer_group, message_id
+        )
+
+
+async def _reclaim_pending(client: redis.Redis) -> None:
+    """Reclaim entries left pending by a previous worker that crashed before ack.
+
+    Basic single-worker recovery: on restart, any still-pending entries are
+    orphaned from a prior run, so we claim them with XAUTOCLAIM and re-process
+    them (which repopulates the cache for client retries). Advanced retry
+    policies (backoff, dead-letter, multi-worker fairness) are out of scope (V2).
+    """
+    start_id = "0-0"
+    try:
+        while True:
+            result = await client.xautoclaim(
+                settings.request_stream,
+                settings.consumer_group,
+                CONSUMER_NAME,
+                min_idle_time=0,
+                start_id=start_id,
+                count=10,
+            )
+            # redis-py returns (next_cursor, claimed_entries[, deleted_ids]).
+            next_cursor, claimed = result[0], result[1]
+            if claimed:
+                logger.info(
+                    "Reclaiming %d pending request(s) from a previous run",
+                    len(claimed),
+                )
+                await _handle_entries(client, claimed)
+            if not claimed or next_cursor == "0-0":
+                break
+            start_id = next_cursor
+    except Exception:
+        logger.exception("Failed to reclaim pending stream entries")
+
+
 async def run() -> None:
     await _wait_for_db()
     client = queue_service.get_redis()
     await _ensure_group(client)
+    await _reclaim_pending(client)
     logger.info("Worker listening on stream '%s'", settings.request_stream)
 
     while True:
@@ -95,12 +140,7 @@ async def run() -> None:
             continue
 
         for _stream, entries in messages:
-            for message_id, fields in entries:
-                payload = json.loads(fields["data"])
-                await _process(payload)
-                await client.xack(
-                    settings.request_stream, settings.consumer_group, message_id
-                )
+            await _handle_entries(client, entries)
 
 
 if __name__ == "__main__":
