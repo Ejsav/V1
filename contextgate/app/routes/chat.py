@@ -18,10 +18,11 @@ async def chat(
     session: AsyncSession = Depends(get_session),
 ) -> ChatResponse:
     request_id = str(uuid.uuid4())
+    model = request.model or settings.default_provider
     embedding = embed_text(request.prompt)
 
-    # 1. Semantic cache lookup — return instantly on a hit.
-    match = await cache_service.find_similar(session, embedding)
+    # 1. Semantic cache lookup (scoped to the requested model) — return instantly on a hit.
+    match = await cache_service.find_similar(session, embedding, model)
     if match is not None:
         return ChatResponse(
             response=match.response,
@@ -36,7 +37,7 @@ async def chat(
         {
             "request_id": request_id,
             "prompt": request.prompt,
-            "model": request.model,
+            "model": model,
             "user_id": request.user_id,
             "session_id": request.session_id,
         }

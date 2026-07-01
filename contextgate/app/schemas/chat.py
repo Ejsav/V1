@@ -3,7 +3,8 @@ from pydantic import BaseModel, Field
 
 class ChatRequest(BaseModel):
     prompt: str = Field(..., min_length=1)
-    model: str = "mock"
+    # When omitted, the server falls back to DEFAULT_PROVIDER.
+    model: str | None = None
     user_id: str | None = None
     session_id: str | None = None
 
